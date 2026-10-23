@@ -1,0 +1,9 @@
+{
+  "_note": "Captured live from wss://18.135.58.84:9140/websocket on 2026-10-23. Request format: {id, method, params}. Responses echo id. Subscription pushes reuse the subscribe request's id.",
+  "getInfo": {"id":"1","data":{"name":"BTC1","shortcut":"BTC1","network":"BTC1","decimals":8,"version":"0.6.0","bestHeight":924787,"bestHash":"0000000458ce9716a597c64e9ebf04aa243b9d334f3ffb18facd55549b53f132","block0Hash":"00000e8e87897c9091937b78eae686bfa50209709e257c059a3a4d3bfad5e824","testnet":false,"backend":{"version":"10000","subversion":"/Satoshi:1.0.0/"}}},
+  "ping": {"id":"5","data":{}},
+  "subscribeNewBlock_ack": {"id":"2","data":{"subscribed":true}},
+  "subscribeNewTransaction_ack": {"id":"3","data":{"subscribed":false,"message":"subscribeNewTransaction not enabled, use -enablesubnewtx flag to enable."}},
+  "subscribeAddresses_ack": {"id":"4","data":{"subscribed":true}},
+  "newBlock_push": {"id":"2","data":{"height":924788,"hash":"000000071d6a30a59a06969585620c6043700e271594e50aedc0f16bc69199db","evmData":null}}
+}

@@ -1,0 +1,236 @@
+# BTC1 Block Explorer — Full Context & Handover
+
+## 1. What exists right now
+
+A **Trezor Blockbook** instance indexing the **BTC1** chain (Bitcoin Genesis 1), built from source for ARM and running on your AWS server, syncing against **node01**. The explorer UI + API come up on port **9140** once the initial sync finishes.
+
+---
+
+## 2. The AWS server — "Blockchain Server 1"
+
+| | |
+|---|---|
+| Instance | `i-0c93d8a6f5508ffea`, Ubuntu 26.04, **aarch64**, eu-west-2a, hostname `ip-10-0-1-35` |
+| Spec | 8 vCPU, 30 GiB RAM, 495 GB disk |
+| NICs | `ens5` (5 IPs, main route table) and `ens6` (5 IPs, policy route table 101) |
+| IPs | 10 private IPs, each 1:1 with its own Elastic IP |
+
+**Node → IP map (unchanged by this work):**
+
+| User | Private IP | Public IP | NIC |
+|---|---|---|---|
+| node01 | 10.0.1.68 | 13.134.88.127 | ens5 |
+| node02 | 10.0.1.216 | 13.135.188.128 | ens5 |
+| node03 | 10.0.1.138 | 13.42.213.252 | ens5 |
+| node04 | 10.0.1.44 | 18.130.181.183 | ens5 |
+| node05 | 10.0.1.35 | 18.135.58.84 (shared with SSH) | ens5 |
+| node06 | 10.0.1.100 | 18.134.192.77 | ens6 |
+| node07 | 10.0.1.38 | 18.171.17.82 | ens6 |
+| node08 | 10.0.1.201 | 35.177.220.211 | ens6 |
+| node09 | 10.0.1.74 | 35.179.14.211 | ens6 |
+| node10 | 10.0.1.238 | 51.24.193.121 | ens6 |
+
+**Three chains, 10 nodes each (30 total), untouched by the explorer work:**
+
+| | bitcoinv1 (BTC1) | reserve (BTCR1) | islami (1iBTC) |
+|---|---|---|---|
+| Daemon/CLI | `bitcoinv1d` / `bitcoinv1-cli` | `bitcoinr1d` / `bitcoinr1-cli` | `bitcoini1d` / `bitcoini1-cli` |
+| P2P port | 8344 | 8555 | 3010 |
+| RPC ports | 18301–18310 | 18401–18410 | 18501–18510 |
+| Systemd unit | `bcnode@.service` | `bcreserve@.service` | `bcislami@.service` |
+
+Verify any time with:
+```bash
+systemctl is-active 'bcnode@node*' 'bcreserve@node*' 'bcislami@node*' | sort | uniq -c   # should be: 30 active
+```
+
+---
+
+## 3. node01 — the Blockbook backend
+
+node01's existing conf (`/var/lib/node01/node.conf`) got these lines added on top of the template defaults:
+```ini
+txindex=1
+rpcuser=blockbook
+rpcpassword=<hex, see node01's conf file — not repeated here>
+rpcworkqueue=64
+zmqpubhashtx=tcp://10.0.1.68:38340
+zmqpubhashblock=tcp://10.0.1.68:38340
+disablewallet=1
+```
+- `txindex=1` is fully synced (`getindexinfo` → `synced: true`).
+- **The password has been printed in plaintext in this chat multiple times during laptop testing. Treat it as compromised — rotate it** (`sed -i 's/^rpcpassword=.*/rpcpassword=NEW/' /var/lib/node01/node.conf`, then `systemctl restart bcnode@node01`, then update `configs/coins/btc1.json` to match and restart `blockbook-btc1`).
+
+**⚠️ Open right now, needs closing (see §7):** a systemd drop-in at `/etc/systemd/system/bcnode@node01.service.d/rpc-external.conf` overrides `rpcbind`/`rpcallowip` to expose RPC (18301) and ZMQ (38340) to **any IP** — this was done temporarily so the laptop could test against node01 over the internet. Now that Blockbook runs on the same server and talks to node01 over `127.0.0.1`/`10.0.1.68` (private), this exposure is unnecessary and should be removed.
+
+---
+
+## 4. BTC1 chain parameters (from `chainparams.cpp`)
+
+| | Mainnet | Testnet |
+|---|---|---|
+| Magic (pchMessageStart) | `98 f8 b5 d8` → `0xd8b5f898` LE | `d4 b6 b3 6f` → `0x6fb3b6d4` LE |
+| P2PKH / P2SH | `0` / `5` (**identical to real Bitcoin**) | `111` / `196` |
+| Bech32 HRP | `bc` (**identical to real Bitcoin**) | `tb` |
+| xpub/xprv | `0488B21E` / `0488ADE4` (same as Bitcoin) | `043587CF` / `04358394` |
+| P2P port | 8344 | 18344 |
+| RPC port (base default) | 8343 | 18343 |
+
+**Known risk, not fixed:** because P2PKH/P2SH/bech32 are identical to Bitcoin's, a BTC1 address is visually indistinguishable from a real Bitcoin address. This is a fork design decision from before this work, just flagging it again since it surfaces here.
+
+---
+
+## 5. Blockbook source tree — what was added/changed
+
+Repo: `~/blockbook` on the AWS server, checked out at tag **v0.6.0**.
+
+### New files
+- `bchain/coins/btc1/btc1parser.go` — registers `MainNetParams`/`TestNetParams` with the magic/prefix/HRP values above; `BTC1Parser` wraps `btc.BitcoinLikeParser`.
+- `bchain/coins/btc1/btc1rpc.go` — `BTC1RPC` wraps `btc.BitcoinRPC`; `Initialize()` calls `b.GetChainInfo()` (see Fix 4 below — **not** `GetChainInfoAndInitializeMempool`, which doesn't exist in v0.6.0) and sets `b.Parser = NewBTC1Parser(...)`.
+
+### Edited files
+- `bchain/coins/blockchain.go` — added the import for `bchain/coins/btc1` and the line `BlockChainFactories["BTC1"] = btc1.NewBTC1RPC`.
+- `configs/coins/btc1.json` — copied from `litecoin.json`, then:
+  ```
+  coin.name/shortcut/label/alias   = BTC1 / BTC1 / "Bitcoin Genesis 1" / btc1
+  ports.backend_rpc                = 18301
+  ports.backend_message_queue      = 38340
+  ports.blockbook_internal         = 9040
+  ports.blockbook_public           = 9140
+  ipc.rpc_url_template             = http://127.0.0.1:{{.Ports.BackendRPC}}      (local, AWS build)
+  ipc.message_queue_binding_template = tcp://10.0.1.68:{{.Ports.BackendMessageQueue}}
+  ipc.rpc_user / rpc_pass          = blockbook / <node01's password>
+  blockbook.block_chain.xpub_magic = 76067358 (standard Bitcoin xpub, unchanged)
+  blockbook.block_chain.xpub_magic_segwit_p2sh = 77429938
+  blockbook.block_chain.xpub_magic_segwit_native = 78792518
+  blockbook.block_chain.slip44     = 1001  (arbitrary, unused elsewhere)
+  meta.package_maintainer/_email   = sugar / abubakarrashraf20@gmail.com
+  fiat_rates fields removed (would otherwise pull Litecoin's CoinGecko prices)
+  ```
+  **This real file (with the password) is git-ignored — see §9.**
+
+### Build-tooling patches (these live in the repo's `build/` tree, not coin-specific, and will need reapplying if you ever re-clone clean)
+1. **RocksDB `uint64_t` compile error on ARM** — `db/blob/blob_file_meta.h` relies on an implicit `<cstdint>` include that only happened to exist on amd64's toolchain. Fixed by adding `-include cstdint` to `CXXFLAGS` in `build/docker/bin/Dockerfile`'s RocksDB build step.
+2. **Packaging image hardcoded x86_64 Docker binary** — `build/docker/deb/Dockerfile` downloaded `.../stable/x86_64/docker-....tgz` and failed with `Exec format error` on ARM. Fixed by swapping `x86_64` for `$(uname -m)` and dropping the SHA256 check line (the pinned hash was for the x86_64 artifact only).
+3. **Malformed `Maintainer` field** — `build/templates/blockbook/debian/control` templated `Maintainer: {{.Meta.PackageMaintainerEmail}}` (email only, no name), which `dpkg-source` rejects. Fixed to `Maintainer: {{.Meta.PackageMaintainer}} <{{.Meta.PackageMaintainerEmail}}>`.
+4. **API mismatch** — `btc1rpc.go` originally called `b.GetChainInfoAndInitializeMempool(b)`, which exists in newer Blockbook but not v0.6.0. Fixed to `b.GetChainInfo()`.
+
+Build tooling required on the host: `docker.io` + `docker-buildx` (buildx is what makes the Dockerfile's `TARGETPLATFORM` arg resolve correctly on ARM — without it, step 17 downloads the wrong-architecture Go binary).
+
+---
+
+## 6. Deployment
+
+```bash
+cd ~/blockbook
+make deb-blockbook-btc1          # → build/blockbook-btc1_0.6.0_arm64.deb
+sudo apt install ./build/blockbook-btc1_0.6.0_arm64.deb
+sudo systemctl enable --now blockbook-btc1
+```
+
+| | |
+|---|---|
+| Service | `blockbook-btc1.service` (enabled, survives reboot) |
+| Logs | `/opt/coins/blockbook/btc1/logs/blockbook.INFO` (also `.WARNING`/`.ERROR` if present) |
+| Data (RocksDB index) | `/opt/coins/data/btc1/blockbook` |
+| Internal API (status, pre-sync) | `127.0.0.1:9040` |
+| Public explorer UI + API | `:9140` (opens once `inSync: true`) |
+
+Verify sync:
+```bash
+curl -sk https://127.0.0.1:9140/api/v2 | jq '.blockbook.bestHeight, .blockbook.inSync, .backend.blocks'
+```
+Sanity-check a balance against the node directly:
+```bash
+curl -sk https://127.0.0.1:9140/api/v2/address/<ADDR> | jq '.balance'           # satoshis
+sudo -u node01 bitcoinv1-cli -datadir=/var/lib/node01 -conf=/var/lib/node01/node.conf -rpcport=18301 \
+  scantxoutset start '["addr(<ADDR>)"]' | jq '.total_amount'                     # BTC1
+# balance / 100000000 should equal total_amount
+```
+
+---
+
+## 7. Open items — do these
+
+- [ ] **Close node01's public exposure.** Once §6's sync is confirmed `inSync:true` via `127.0.0.1`, remove the drop-in and the two security-group rules opened for laptop testing:
+  ```bash
+  sudo rm -r /etc/systemd/system/bcnode@node01.service.d
+  sudo systemctl daemon-reload && sudo systemctl restart bcnode@node01
+  ```
+  Then delete the SG inbound rules for **TCP 18301** and **TCP 38340** (source `0.0.0.0/0`). Keep **TCP 8344** (P2P) and whatever you've opened for **9140** (explorer).
+- [ ] **Rotate node01's RPC password** (shared in chat repeatedly).
+- [ ] From the original handover doc (predates this work, still unresolved): confirm security-group page 2 has **TCP 8344** and **TCP 8555** — page 1 was missing them.
+- [ ] **Reboot pending** (`7.0.0-1013-aws` → `...-1014-aws`). All 31 services (30 nodes + Blockbook) are `enable`d, so a reboot is safe whenever convenient.
+- [ ] Decide fiat-rate/UI polish later (currently stripped from config, see §5).
+
+---
+
+## 8. GitHub
+
+```
+origin  git@github.com:OrbitOne-Finance/bitcoin-blockchain-explorer.git
+branch  btc1-explorer
+```
+`.gitignore` excludes `build.log`, `build/`, `*.deb`, and the **real** `configs/coins/btc1.json` (has the live RPC password). A sanitized `configs/coins/btc1.json.example` (password replaced with `CHANGE_ME`) is committed instead.
+
+**License note:** Blockbook is **AGPL-3.0**. Running a modified version publicly requires publishing the modified source — this repo satisfies that obligation once pushed. Rebranding the bundled UI (`static/templates/*.html`, `static/css/`) stays inside the same obligation; it doesn't need separate handling.
+
+---
+
+## 9. If you build a separate frontend
+
+Blockbook ships its indexer, REST API, websocket, **and** a server-rendered HTML UI as one Go binary — there's no separate "frontend repo" inside Blockbook itself. To get a UI you can freely rebrand without touching Go templates, build a standalone frontend that talks to Blockbook purely as a backend API. That frontend is a genuinely separate codebase, licensable however you want.
+
+### Architecture
+```
+Browser → your frontend (Next.js, etc.) → Blockbook REST + WebSocket API (127.0.0.1:9140, proxied by Nginx)
+                                                      ↕ RPC/ZMQ (private, 127.0.0.1 / 10.0.1.68)
+                                                   node01 (BTC1)
+```
+- Keep Blockbook bound to `127.0.0.1:9140` (or your current public bind) — don't expose it raw to the internet if you're putting Nginx in front.
+- Nginx on the explorer domain proxies:
+  - `/api/` → `http://127.0.0.1:9140/api/`
+  - `/websocket` → `http://127.0.0.1:9140/websocket` (needs `Upgrade`/`Connection` headers for the websocket)
+- Your frontend is a separate process/deployment (same server or elsewhere) that only ever calls that domain.
+
+### REST API — base `https://<explorer-domain>/api/v2`
+
+| Endpoint | Purpose | Key response fields |
+|---|---|---|
+| `GET /api/v2` | Status / home page | `blockbook.bestHeight`, `.inSync`, `.coin`; `backend.blocks`, `.chain`, `.version` |
+| `GET /api/v2/block-index/{height}` | Height → hash | `blockHash` |
+| `GET /api/v2/block/{hash\|height}?page=&pageSize=` | Block page | `height`, `hash`, `prevBlock`, `txCount`, `txs[]` |
+| `GET /api/v2/tx/{txid}` | Transaction page | `vin[]`/`vout[]` with addresses & values, `confirmations`, `blockHeight`, `fees` |
+| `GET /api/v2/tx-specific/{txid}` | Raw backend-format tx | node-native JSON (for tooling, not display) |
+| `GET /api/v2/address/{address}?page=&pageSize=&details=basic\|txids\|txs` | Address page | `balance`, `totalReceived`, `totalSent`, `unconfirmedBalance`, `txs`/`txids` |
+| `GET /api/v2/utxo/{address}` | Spendable UTXOs — **this is what your exchange backends should use instead of RPC scans** | `[{txid, vout, value, confirmations}]` |
+| `GET /api/v2/balancehistory/{address}?from=&to=&groupBy=` | Balance deltas over time (for charts) | time-bucketed received/sent |
+| `GET /api/v2/xpub/{xpub}?gap=` | HD wallet aggregate (only if you add wallet features) | aggregate balance across derived addresses |
+| `GET /api/v2/estimatefee/{blocks}` | Fee estimate | fee rate |
+| `POST /api/v2/sendtx/{hex}` | Broadcast a raw tx through Blockbook → node | tx result or error |
+
+**Minimum set for a plain explorer (6 integration points):** status, block, tx, address, search routing (client-side logic — height vs. hash vs. txid vs. address — no extra endpoint needed), and optionally live updates via websocket. `utxo`/`xpub`/`sendtx`/`balancehistory` only matter if you add wallet or deposit-monitoring features.
+
+### WebSocket — `wss://<explorer-domain>/websocket`
+A JSON method-call protocol over one socket:
+- `subscribeNewBlock` — push on new block
+- `subscribeNewTransaction` — push on new mempool tx
+- `subscribeAddresses {addresses:[...]}` — push on activity for watched addresses — **this is the direct replacement for Celery polling in p2p1/swap21's deposit detection**
+- `getAccountInfo`, `getAccountUtxo`, `getInfo`, `getBlockHash`, `estimateFee`, `sendTransaction`, `ping` — request/response equivalents of the REST calls, same socket
+
+### Env vars the frontend needs
+```
+BLOCKBOOK_API_URL=https://explorer.btc1.<domain>/api/v2
+BLOCKBOOK_WS_URL=wss://explorer.btc1.<domain>/websocket
+```
+(Prefix with `NEXT_PUBLIC_` if it's Next.js and called client-side. One pair per chain if you later stand up BTCR1/1iBTC explorers the same way — no multi-coin support inside a single Blockbook instance, each fork needs its own.)
+
+### CORS
+Blockbook doesn't set CORS headers itself. If the frontend is hosted on a **different origin** than the API domain, add `Access-Control-Allow-Origin` in the Nginx block proxying `/api/`. If frontend and API share the same domain (reverse-proxied together), this isn't needed.
+
+### For the exchange backends specifically
+Point p2p1-backend/swap21-backend's deposit watcher at `subscribeAddresses` (or poll `/api/v2/utxo/{address}` on a timer) instead of RPC `listunspent` scans. Keep using the node directly (not Blockbook) for anything that signs or constructs transactions — Blockbook is read/broadcast-only, not a wallet.
+
+---
+
+**Caveat on the API table:** this reflects Blockbook's documented v2 API shape. Confirm exact field names against your live v0.6.0 instance before building against it — hit each endpoint once and check the real JSON (`curl -sk https://127.0.0.1:9140/api/v2/tx/<a real txid>` etc.) rather than trusting this table verbatim.

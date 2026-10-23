@@ -1,0 +1,11 @@
+{
+  "_note": "Error shapes observed live. Not-found is HTTP 400 (not 404). Rate limit is HTTP 429. block-index miss is HTTP 200 with empty blockHash.",
+  "rateLimit_429": {"error":"rate limit exceeded"},
+  "blockNotFoundByHeight_400": {"error":"Block not found, Block not found"},
+  "blockNotFoundByHash_400": {"error":"Block not found"},
+  "txNotFound_400": {"error":"Transaction '00000000000000000000000000000000000000000000000000000000deadbeef' not found"},
+  "txBadLength_400": {"error":"Transaction '00' not found (txid 00: -8: parameter 1 must be of length 64 (not 2, for '00'))"},
+  "invalidAddress_400": {"error":"Invalid address, checksum mismatch"},
+  "blockIndexMiss_200": {"blockHash":""},
+  "balanceHistoryTooLarge": {"error":"balance history spans more than 100000 transactions in the requested range; narrow the from/to range"}
+}

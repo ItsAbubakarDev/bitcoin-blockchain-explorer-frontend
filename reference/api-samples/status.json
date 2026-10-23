@@ -1,0 +1,32 @@
+{
+  "blockbook": {
+    "coin": "BTC1",
+    "network": "BTC1",
+    "host": "ip-10-0-1-35",
+    "version": "0.6.0",
+    "gitCommit": "6e1299a2-dirty",
+    "buildTime": "2026-10-22T16:08:25+00:00",
+    "syncMode": true,
+    "initialSync": false,
+    "inSync": true,
+    "bestHeight": 924785,
+    "lastBlockTime": "2026-10-23T18:35:36.011545383Z",
+    "inSyncMempool": true,
+    "lastMempoolTime": "2026-10-23T18:36:36.024305516Z",
+    "mempoolSize": 0,
+    "decimals": 8,
+    "dbSize": 4947045524,
+    "about": "Blockbook - blockchain indexer for Trezor Suite https://trezor.io/trezor-suite. Do not use for any other purpose."
+  },
+  "backend": {
+    "chain": "main",
+    "blocks": 924785,
+    "headers": 924785,
+    "bestBlockHash": "00000008c3de1746838565f98379df58d85b671fea64ac7e4ee0a9224204451f",
+    "difficulty": "0.04653671276903205",
+    "sizeOnDisk": 280344407,
+    "version": "10000",
+    "subversion": "/Satoshi:1.0.0/",
+    "protocolVersion": "70016"
+  }
+}

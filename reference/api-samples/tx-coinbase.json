@@ -1,0 +1,33 @@
+{
+  "txid": "ce8127de47ef008c0f5233e3dc3a09465770429e30f35b2ba2ee8d29312f14a0",
+  "version": 1,
+  "vin": [
+    {
+      "sequence": 4294967295,
+      "n": 0,
+      "isAddress": false,
+      "coinbase": "01012d2d205361746f736869204d696e696e67202d2d00000000"
+    }
+  ],
+  "vout": [
+    {
+      "value": "10000000000",
+      "n": 0,
+      "hex": "76a914d5826a59033c95673c26756361d9c7fdd33b403988ac",
+      "addresses": [
+        "1LTwAHNDWkVQf8ZkQZVNcGn3A31ewd2m5G"
+      ],
+      "isAddress": true
+    }
+  ],
+  "blockHash": "000009015856482116b26de936cf2b5274a251e71e4e4633c15ad3e93385b1f9",
+  "blockHeight": 1,
+  "confirmations": 924787,
+  "blockTime": 1669025994,
+  "size": 111,
+  "vsize": 111,
+  "value": "10000000000",
+  "valueIn": "0",
+  "fees": "0",
+  "hex": "01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff1a01012d2d205361746f736869204d696e696e67202d2d00000000ffffffff0100e40b54020000001976a914d5826a59033c95673c26756361d9c7fdd33b403988ac00000000"
+}

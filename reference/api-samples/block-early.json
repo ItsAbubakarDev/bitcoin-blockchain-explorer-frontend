@@ -1,0 +1,47 @@
+{
+  "page": 1,
+  "totalPages": 1,
+  "itemsOnPage": 1000,
+  "hash": "000009015856482116b26de936cf2b5274a251e71e4e4633c15ad3e93385b1f9",
+  "previousBlockHash": "00000e8e87897c9091937b78eae686bfa50209709e257c059a3a4d3bfad5e824",
+  "nextBlockHash": "00000dbcabf4683061d7950c775e9ec4ce322d196d6cd7f36fc55829a5192eb1",
+  "height": 1,
+  "confirmations": 924785,
+  "size": 192,
+  "time": 1669025994,
+  "version": 536870912,
+  "merkleRoot": "ce8127de47ef008c0f5233e3dc3a09465770429e30f35b2ba2ee8d29312f14a0",
+  "nonce": "182603",
+  "bits": "1e0ffff0",
+  "difficulty": "0.000244140625",
+  "txCount": 1,
+  "txs": [
+    {
+      "txid": "ce8127de47ef008c0f5233e3dc3a09465770429e30f35b2ba2ee8d29312f14a0",
+      "vin": [
+        {
+          "n": 0,
+          "isAddress": false,
+          "value": "0"
+        }
+      ],
+      "vout": [
+        {
+          "value": "10000000000",
+          "n": 0,
+          "addresses": [
+            "1LTwAHNDWkVQf8ZkQZVNcGn3A31ewd2m5G"
+          ],
+          "isAddress": true
+        }
+      ],
+      "blockHash": "000009015856482116b26de936cf2b5274a251e71e4e4633c15ad3e93385b1f9",
+      "blockHeight": 1,
+      "confirmations": 924785,
+      "blockTime": 1669025994,
+      "value": "10000000000",
+      "valueIn": "0",
+      "fees": "0"
+    }
+  ]
+}
