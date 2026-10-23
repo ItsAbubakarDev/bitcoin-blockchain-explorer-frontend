@@ -80,7 +80,8 @@ function columns(variant: TxTableVariant): Column<TxRow>[] {
     },
   };
 
-  if (variant === "latest") return [txid, block, age, to, value];
+  // Dashboard half-width table: no room for a "To" column.
+  if (variant === "latest") return [txid, block, age, value];
   if (variant === "block") return [txid, to, io, fee, value];
   return [txid, block, age, io, delta];
 }

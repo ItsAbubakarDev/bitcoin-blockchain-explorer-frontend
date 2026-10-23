@@ -19,7 +19,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={`${inter.variable} ${mono.variable}`}>
       <body>
         <Nav />
-        <main className="mx-auto w-full max-w-7xl px-3 pb-12 pt-4 sm:px-6">{children}</main>
+        <main className="relative isolate mx-auto w-full max-w-7xl px-3 pb-12 pt-4 sm:px-6">{children}</main>
         <footer className="border-t border-line py-4 text-center text-xs text-faint">
           {EXPLORER_TITLE} · {COIN_NAME} · data from Blockbook
         </footer>

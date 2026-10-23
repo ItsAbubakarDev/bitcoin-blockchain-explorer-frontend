@@ -10,7 +10,7 @@
     @apply bg-bg text-fg antialiased;
   }
   body {
-    @apply min-h-screen bg-bg font-sans text-sm;
+    @apply min-h-screen overflow-x-hidden bg-bg font-sans text-sm;
   }
   ::selection {
     @apply bg-accent/30 text-fg;

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { COIN_SYMBOL, EXPLORER_TITLE } from "@/lib/config";
 import { CubeIcon } from "./Icons";
 import { NavLiveBadge } from "./NavLiveBadge";
-import { SearchBar } from "./SearchBar";
+import { NavSearch } from "./NavSearch";
 
 export function Nav() {
   return (
@@ -27,7 +27,7 @@ export function Nav() {
           <NavLiveBadge />
         </div>
         <div className="order-last w-full md:order-none md:ml-auto md:w-auto md:min-w-[22rem] md:max-w-xl md:flex-1">
-          <SearchBar />
+          <NavSearch />
         </div>
         <div className="hidden md:block">
           <NavLiveBadge />
